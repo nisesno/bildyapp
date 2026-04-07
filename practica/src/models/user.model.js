@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      select: false,
+      select: false, // no lo devolvemos nunca por defecto
     },
     name: {
       type: String,
@@ -35,6 +35,7 @@ const userSchema = new mongoose.Schema(
       enum: ['admin', 'guest'],
       default: 'admin',
     },
+    // verificacion de email por codigo
     status: {
       type: String,
       enum: ['pending', 'verified'],
@@ -46,7 +47,14 @@ const userSchema = new mongoose.Schema(
     },
     verificationAttempts: {
       type: Number,
-      default: 3,
+      default: 3, // intentos restantes
+    },
+    // guardamos el refresh token activo para poder revocarlo en el logout.
+    // si esta a null, los refresh tokens viejos no valen.
+    refreshToken: {
+      type: String,
+      default: null,
+      select: false,
     },
     company: {
       type: mongoose.Schema.Types.ObjectId,
@@ -60,12 +68,38 @@ const userSchema = new mongoose.Schema(
       city: { type: String, default: '' },
       province: { type: String, default: '' },
     },
+    // soft delete
+    deleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
     versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 );
+
+// virtual: nombre completo
+userSchema.virtual('fullName').get(function () {
+  return `${this.name} ${this.lastName}`.trim();
+});
+
+// no devolver campos sensibles al serializar
+userSchema.methods.toJSON = function () {
+  const obj = this.toObject({ virtuals: true });
+  delete obj.password;
+  delete obj.verificationCode;
+  delete obj.refreshToken;
+  delete obj.__v;
+  return obj;
+};
 
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ company: 1 });

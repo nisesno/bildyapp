@@ -30,9 +30,19 @@ const companySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // si es autonomo la "company" es realmente el propio usuario
     isFreelance: {
       type: Boolean,
       default: false,
+    },
+    // soft delete
+    deleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -43,5 +53,6 @@ const companySchema = new mongoose.Schema(
 
 companySchema.index({ cif: 1 });
 companySchema.index({ owner: 1 });
+companySchema.index({ deleted: 1 });
 
 export default mongoose.model('Company', companySchema);
