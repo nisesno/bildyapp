@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import User from '../models/user.model.js';
+import Company from '../models/company.model.js';
 import { encrypt, compare } from '../utils/handlePassword.js';
 import { signAccessToken, signRefreshToken } from '../utils/handleJwt.js';
 import { AppError } from '../utils/handleError.js';
@@ -86,4 +87,102 @@ export const login = async (req, res) => {
   await user.save();
 
   res.json({ accessToken, refreshToken, user });
+};
+
+export const onboarding = async (req, res) => {
+  const { name, lastName, nif } = req.body;
+
+  const user = await User.findById(req.user._id);
+  if (!user) throw new AppError('Usuario no encontrado', 404);
+
+  user.name = name;
+  user.lastName = lastName;
+  user.nif = nif;
+  await user.save();
+
+  res.json(user);
+};
+
+export const setCompany = async (req, res) => {
+  const body = req.body;
+  const user = await User.findById(req.user._id);
+  if (!user) throw new AppError('Usuario no encontrado', 404);
+
+  if (body.type === 'freelance') {
+    // para autonomos uso el nif del propio usuario como "cif" de la company
+    if (!user.nif || !user.name) {
+      throw new AppError(
+        'Debes completar tu onboarding antes de darte de alta como autonomo',
+        400,
+      );
+    }
+
+    const company = await Company.create({
+      owner: user._id,
+      name: `${user.name} ${user.lastName}`.trim(),
+      cif: user.nif,
+      address: {
+        street: body.street,
+        number: body.number,
+        postal: body.postal,
+        city: body.city,
+        province: body.province,
+      },
+      isFreelance: true,
+    });
+
+    user.company = company._id;
+    await user.save();
+    return res.json(user);
+  }
+
+  // business: si ya existe el cif se une, si no la crea
+  let company = await Company.findOne({ cif: body.cif, deleted: false });
+
+  if (company) {
+    user.company = company._id;
+    user.role = 'guest';
+    await user.save();
+    return res.json(user);
+  }
+
+  company = await Company.create({
+    owner: user._id,
+    name: body.name,
+    cif: body.cif,
+    address: {
+      street: body.street,
+      number: body.number,
+      postal: body.postal,
+      city: body.city,
+      province: body.province,
+    },
+  });
+
+  user.company = company._id;
+  user.role = 'admin';
+  await user.save();
+  res.json(user);
+};
+
+export const uploadLogo = async (req, res) => {
+  if (!req.file) throw new AppError('No se ha enviado ningun archivo', 400);
+
+  const user = await User.findById(req.user._id);
+  if (!user.company) throw new AppError('No tienes empresa asignada', 400);
+
+  const company = await Company.findById(user.company);
+  if (!company) throw new AppError('Empresa no encontrada', 404);
+
+  // guardo solo la ruta relativa; en real subiriamos a un bucket
+  company.logo = `/storage/${req.file.filename}`;
+  await company.save();
+
+  res.json({ logo: company.logo, company });
+};
+
+export const getMe = async (req, res) => {
+  const user = await User.findById(req.user._id).populate('company');
+  if (!user) throw new AppError('Usuario no encontrado', 404);
+  res.json(user);
 };
