@@ -2,7 +2,11 @@ import crypto from 'node:crypto';
 import User from '../models/user.model.js';
 import Company from '../models/company.model.js';
 import { encrypt, compare } from '../utils/handlePassword.js';
-import { signAccessToken, signRefreshToken } from '../utils/handleJwt.js';
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from '../utils/handleJwt.js';
 import { AppError } from '../utils/handleError.js';
 import ee from '../utils/eventBus.js';
 
@@ -185,4 +189,114 @@ export const getMe = async (req, res) => {
   const user = await User.findById(req.user._id).populate('company');
   if (!user) throw new AppError('Usuario no encontrado', 404);
   res.json(user);
+};
+
+export const refresh = async (req, res) => {
+  const { refreshToken } = req.body;
+
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    throw new AppError('Refresh token invalido o expirado', 401);
+  }
+
+  const user = await User.findById(payload._id).select('+refreshToken');
+  if (!user || user.deleted) {
+    throw new AppError('Usuario no encontrado', 401);
+  }
+
+  // si no coincide con el ultimo guardado es que ya rotaron o hicieron logout
+  if (user.refreshToken !== refreshToken) {
+    throw new AppError('Refresh token revocado', 401);
+  }
+
+  const newAccess = signAccessToken(user);
+  const newRefresh = signRefreshToken(user);
+  user.refreshToken = newRefresh;
+  await user.save();
+
+  res.json({ accessToken: newAccess, refreshToken: newRefresh });
+};
+
+export const logout = async (req, res) => {
+  const user = await User.findById(req.user._id).select('+refreshToken');
+  if (!user) throw new AppError('Usuario no encontrado', 404);
+
+  user.refreshToken = null;
+  await user.save();
+
+  res.json({ acknowledged: true, message: 'Sesion cerrada' });
+};
+
+export const remove = async (req, res) => {
+  const isSoft = req.validatedQuery?.soft === true;
+
+  const user = await User.findById(req.user._id);
+  if (!user) throw new AppError('Usuario no encontrado', 404);
+
+  if (isSoft) {
+    user.deleted = true;
+    user.deletedAt = new Date();
+    user.refreshToken = null;
+    await user.save();
+  } else {
+    await User.deleteOne({ _id: user._id });
+  }
+
+  ee.emit('user:deleted', { userId: user._id, soft: isSoft });
+
+  res.json({ acknowledged: true, soft: isSoft });
+};
+
+export const invite = async (req, res) => {
+  const { email } = req.body;
+
+  if (!req.user.company) {
+    throw new AppError('No puedes invitar sin tener empresa', 400);
+  }
+
+  const exists = await User.findOne({ email });
+  if (exists) throw new AppError('Ese email ya esta registrado', 409);
+
+  const tempPassword = crypto.randomBytes(6).toString('hex') + 'A1';
+  const hash = await encrypt(tempPassword);
+
+  const guest = await User.create({
+    email,
+    password: hash,
+    role: 'guest',
+    company: req.user.company,
+    status: 'pending',
+    verificationCode: generateVerificationCode(),
+  });
+
+  ee.emit('user:invited', {
+    userId: guest._id,
+    email: guest.email,
+    tempPassword,
+    invitedBy: req.user._id,
+  });
+
+  // TODO: quitar tempPassword de la respuesta cuando haya envio de email real
+  res.status(201).json({
+    acknowledged: true,
+    user: guest,
+    tempPassword,
+  });
+};
+
+export const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user._id).select('+password');
+  if (!user) throw new AppError('Usuario no encontrado', 404);
+
+  const ok = await compare(currentPassword, user.password);
+  if (!ok) throw new AppError('La contrasena actual es incorrecta', 400);
+
+  user.password = await encrypt(newPassword);
+  await user.save();
+
+  res.json({ acknowledged: true });
 };

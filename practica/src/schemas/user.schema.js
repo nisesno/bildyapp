@@ -88,3 +88,21 @@ export const deleteSchema = z.object({
       .transform((v) => v === 'true'),
   }),
 });
+
+// cambio de password con doble refine (cross-field)
+export const changePasswordSchema = z.object({
+  body: z
+    .object({
+      currentPassword: z.string().min(1, 'Password actual requerida'),
+      newPassword: passwordSchema,
+      confirmPassword: z.string(),
+    })
+    .refine((d) => d.newPassword === d.confirmPassword, {
+      message: 'Las contrasenas no coinciden',
+      path: ['confirmPassword'],
+    })
+    .refine((d) => d.currentPassword !== d.newPassword, {
+      message: 'La nueva contrasena debe ser distinta a la actual',
+      path: ['newPassword'],
+    }),
+});
