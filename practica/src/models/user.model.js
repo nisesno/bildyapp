@@ -101,7 +101,7 @@ userSchema.methods.toJSON = function () {
   return obj;
 };
 
-userSchema.index({ email: 1 }, { unique: true });
+// email ya lleva unique:true arriba
 userSchema.index({ company: 1 });
 userSchema.index({ status: 1 });
 userSchema.index({ role: 1 });

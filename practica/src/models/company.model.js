@@ -51,7 +51,7 @@ const companySchema = new mongoose.Schema(
   },
 );
 
-companySchema.index({ cif: 1 });
+// cif ya lleva unique:true arriba
 companySchema.index({ owner: 1 });
 companySchema.index({ deleted: 1 });
 
