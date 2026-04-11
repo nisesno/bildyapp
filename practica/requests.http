@@ -1,0 +1,42 @@
+@host = http://localhost:3000
+@accessToken = PEGAR_ACCESS_TOKEN
+@refreshToken = PEGAR_REFRESH_TOKEN
+
+
+### register
+POST {{host}}/api/user/register
+Content-Type: application/json
+
+{
+  "email": "alumno@bildy.test",
+  "password": "Password123"
+}
+
+
+### validar email (codigo sale en consola)
+PUT {{host}}/api/user/validation
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "code": "123456"
+}
+
+
+### login
+POST {{host}}/api/user/login
+Content-Type: application/json
+
+{
+  "email": "alumno@bildy.test",
+  "password": "Password123"
+}
+
+
+### get me
+GET {{host}}/api/user
+Authorization: Bearer {{accessToken}}
+
+
+### health
+GET {{host}}/api/health
