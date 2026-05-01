@@ -1,6 +1,7 @@
 import DeliveryNote from '../models/deliverynote.model.js';
 import Project from '../models/project.model.js';
 import { AppError } from '../utils/handleError.js';
+import { buildDeliveryNotePdf } from '../services/pdf.service.js';
 
 const requireCompany = (req) => {
   if (!req.user.company) {
@@ -83,6 +84,30 @@ export const getOne = async (req, res) => {
   if (!note) throw new AppError('Albaran no encontrado', 404);
 
   res.json(note);
+};
+
+export const downloadPdf = async (req, res) => {
+  const companyId = requireCompany(req);
+
+  const note = await DeliveryNote.findOne({
+    _id: req.params.id,
+    company: companyId,
+    deleted: false,
+  })
+    .populate('user', 'name lastName email')
+    .populate('client', 'name cif email address')
+    .populate('project', 'name projectCode address');
+
+  if (!note) throw new AppError('Albaran no encontrado', 404);
+
+  const pdf = await buildDeliveryNotePdf(note);
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="albaran-${note._id}.pdf"`,
+  );
+  res.send(pdf);
 };
 
 export const remove = async (req, res) => {

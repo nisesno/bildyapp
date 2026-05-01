@@ -14,6 +14,7 @@ router.use(auth);
 
 router.post('/', validate(createDeliveryNoteSchema), ctrl.create);
 router.get('/', validate(listDeliveryNotesSchema), ctrl.list);
+router.get('/pdf/:id', validate(idParamSchema), ctrl.downloadPdf);
 router.get('/:id', validate(idParamSchema), ctrl.getOne);
 router.delete('/:id', validate(idParamSchema), ctrl.remove);
 
