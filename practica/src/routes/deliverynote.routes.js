@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as ctrl from '../controllers/deliverynote.controller.js';
 import auth from '../middleware/session.middleware.js';
 import validate from '../middleware/validator.middleware.js';
+import uploadMemory from '../middleware/uploadMemory.middleware.js';
 import {
   createDeliveryNoteSchema,
   idParamSchema,
@@ -16,6 +17,7 @@ router.post('/', validate(createDeliveryNoteSchema), ctrl.create);
 router.get('/', validate(listDeliveryNotesSchema), ctrl.list);
 router.get('/pdf/:id', validate(idParamSchema), ctrl.downloadPdf);
 router.get('/:id', validate(idParamSchema), ctrl.getOne);
+router.patch('/:id/sign', uploadMemory.single('signature'), ctrl.sign);
 router.delete('/:id', validate(idParamSchema), ctrl.remove);
 
 export default router;
