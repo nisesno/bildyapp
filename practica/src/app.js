@@ -1,9 +1,11 @@
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
 import routes from './routes/index.js';
 import errorHandler from './middleware/error.middleware.js';
 import sanitizeBody from './middleware/sanitize.middleware.js';
+import swaggerSpecs from './config/swagger.js';
 
 // importar los listeners registra sus handlers en el bus
 import './listeners/user.listeners.js';
@@ -36,6 +38,9 @@ app.use(express.json({ limit: '1mb' }));
 app.use(sanitizeBody);
 
 app.use('/storage', express.static('storage'));
+
+// docs swagger - lo dejo sin auth para poder probarlo
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 
 app.use('/api', routes);
 
