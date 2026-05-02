@@ -1,4 +1,5 @@
 import { AppError } from '../utils/handleError.js';
+import { notifyError } from '../services/logger.service.js';
 
 // Middleware global de errores. Express 5 captura solo los async,
 // asi que todo acaba aqui si no se ha respondido antes.
@@ -40,6 +41,15 @@ const errorHandler = (err, req, res, next) => {
 
   // fallback: log + 500
   console.error('[errorHandler]', err);
+
+  // notificamos el 5xx a slack (no bloqueante)
+  notifyError({
+    method: req.method,
+    path: req.originalUrl,
+    status: 500,
+    message: err.message,
+  });
+
   res.status(500).json({
     error: true,
     message: 'Error interno del servidor',
