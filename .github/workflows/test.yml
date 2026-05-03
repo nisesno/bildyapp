@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: practica/package-lock.json
+
+      - name: Instalar dependencias
+        run: cd practica && npm ci
+
+      - name: Ejecutar linter
+        run: cd practica && npm run lint
+
+      - name: Ejecutar tests
+        run: cd practica && npm test
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-32-chars-1234567890aaaaa
+          JWT_REFRESH_SECRET: test-refresh-32-chars-1234567890aaaaa
+          JWT_EXPIRES_IN: 15m
+          JWT_REFRESH_EXPIRES_IN: 7d
