@@ -16,24 +16,29 @@ const app = express();
 app.disable('x-powered-by');
 app.use(helmet());
 
-// 100 reqs / 15min global
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: true, message: 'Demasiadas peticiones, prueba mas tarde' },
-});
-app.use(limiter);
+// en tests no aplico el rate limit, si no se agota entre suites
+const isTest = process.env.NODE_ENV === 'test';
 
-// mas estricto en login/register (fuerza bruta)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: true, message: 'Demasiados intentos de autenticacion' },
-});
-app.use('/api/user/login', authLimiter);
-app.use('/api/user/register', authLimiter);
+if (!isTest) {
+  // 100 reqs / 15min global
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: true, message: 'Demasiadas peticiones, prueba mas tarde' },
+  });
+  app.use(limiter);
+
+  // mas estricto en login/register (fuerza bruta)
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: true, message: 'Demasiados intentos de autenticacion' },
+  });
+  app.use('/api/user/login', authLimiter);
+  app.use('/api/user/register', authLimiter);
+}
 
 app.use(express.json({ limit: '1mb' }));
 app.use(sanitizeBody);
