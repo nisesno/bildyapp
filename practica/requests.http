@@ -1,7 +1,12 @@
 @host = http://localhost:3000
 @accessToken = PEGAR_ACCESS_TOKEN
 @refreshToken = PEGAR_REFRESH_TOKEN
+@clientId = PEGAR_ID_CLIENTE
+@projectId = PEGAR_ID_PROYECTO
+@noteId = PEGAR_ID_ALBARAN
 
+
+### --- USUARIOS ---
 
 ### register
 POST {{host}}/api/user/register
@@ -13,7 +18,7 @@ Content-Type: application/json
 }
 
 
-### validar email (codigo sale en consola)
+### validar email (codigo sale en consola del server)
 PUT {{host}}/api/user/validation
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -62,34 +67,6 @@ Content-Type: application/json
 }
 
 
-### company - freelance
-PATCH {{host}}/api/user/company
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-
-{
-  "type": "freelance",
-  "street": "Calle Sol",
-  "number": 1,
-  "postal": "28001",
-  "city": "Madrid",
-  "province": "Madrid"
-}
-
-
-### logo (cambiar la ruta del archivo)
-PATCH {{host}}/api/user/logo
-Authorization: Bearer {{accessToken}}
-Content-Type: multipart/form-data; boundary=----boundary
-
-------boundary
-Content-Disposition: form-data; name="logo"; filename="logo.png"
-Content-Type: image/png
-
-< ./logo.png
-------boundary--
-
-
 ### get me
 GET {{host}}/api/user
 Authorization: Bearer {{accessToken}}
@@ -114,32 +91,164 @@ DELETE {{host}}/api/user?soft=true
 Authorization: Bearer {{accessToken}}
 
 
-### delete hard
-DELETE {{host}}/api/user?soft=false
-Authorization: Bearer {{accessToken}}
+### --- CLIENTES ---
 
-
-### invite (solo admin)
-POST {{host}}/api/user/invite
+### crear cliente
+POST {{host}}/api/client
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "email": "compi@bildy.test"
+  "name": "Garcia Reformas SL",
+  "cif": "B87654321",
+  "email": "garcia@cliente.test",
+  "phone": "600111222",
+  "address": {
+    "street": "Calle Mayor",
+    "number": 5,
+    "postal": "28013",
+    "city": "Madrid",
+    "province": "Madrid"
+  }
 }
 
 
-### change password
-PATCH {{host}}/api/user/password
+### listar clientes (paginado, filtro por nombre)
+GET {{host}}/api/client?page=1&limit=10&name=Garcia
+Authorization: Bearer {{accessToken}}
+
+
+### un cliente
+GET {{host}}/api/client/{{clientId}}
+Authorization: Bearer {{accessToken}}
+
+
+### actualizar
+PUT {{host}}/api/client/{{clientId}}
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "currentPassword": "Password123",
-  "newPassword": "NuevaPass456",
-  "confirmPassword": "NuevaPass456"
+  "phone": "600999888"
 }
 
 
-### health
+### archivar (soft)
+DELETE {{host}}/api/client/{{clientId}}?soft=true
+Authorization: Bearer {{accessToken}}
+
+
+### archivados
+GET {{host}}/api/client/archived
+Authorization: Bearer {{accessToken}}
+
+
+### restaurar
+PATCH {{host}}/api/client/{{clientId}}/restore
+Authorization: Bearer {{accessToken}}
+
+
+### --- PROYECTOS ---
+
+### crear proyecto
+POST {{host}}/api/project
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Reforma cocina",
+  "projectCode": "PRJ-001",
+  "client": "{{clientId}}",
+  "notes": "Empieza el lunes"
+}
+
+
+### listar proyectos por cliente
+GET {{host}}/api/project?client={{clientId}}&active=true
+Authorization: Bearer {{accessToken}}
+
+
+### archivar
+DELETE {{host}}/api/project/{{projectId}}?soft=true
+Authorization: Bearer {{accessToken}}
+
+
+### --- ALBARANES ---
+
+### crear albaran de horas (1 trabajador)
+POST {{host}}/api/deliverynote
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "project": "{{projectId}}",
+  "format": "hours",
+  "hours": 8,
+  "description": "Dia normal"
+}
+
+
+### crear albaran de horas (varios trabajadores)
+POST {{host}}/api/deliverynote
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "project": "{{projectId}}",
+  "format": "hours",
+  "workers": [
+    { "name": "Juan",  "hours": 8 },
+    { "name": "Maria", "hours": 6 }
+  ]
+}
+
+
+### crear albaran de material
+POST {{host}}/api/deliverynote
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "project": "{{projectId}}",
+  "format": "material",
+  "material": "Cemento",
+  "quantity": 25,
+  "unit": "saco"
+}
+
+
+### listar (paginado + filtros)
+GET {{host}}/api/deliverynote?project={{projectId}}&format=hours&from=2026-01-01
+Authorization: Bearer {{accessToken}}
+
+
+### un albaran (con populate)
+GET {{host}}/api/deliverynote/{{noteId}}
+Authorization: Bearer {{accessToken}}
+
+
+### descargar pdf (si esta firmado redirige al de la nube)
+GET {{host}}/api/deliverynote/pdf/{{noteId}}
+Authorization: Bearer {{accessToken}}
+
+
+### firmar (multipart con la imagen)
+PATCH {{host}}/api/deliverynote/{{noteId}}/sign
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="signature"; filename="firma.png"
+Content-Type: image/png
+
+< ./firma.png
+------boundary--
+
+
+### borrar albaran (no permitido si esta firmado)
+DELETE {{host}}/api/deliverynote/{{noteId}}
+Authorization: Bearer {{accessToken}}
+
+
+### --- HEALTH ---
 GET {{host}}/api/health

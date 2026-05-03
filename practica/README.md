@@ -1,53 +1,93 @@
 # bildyapp
 
-Practica intermedia de Web II. Api rest del modulo de usuarios de bildyapp
-(el gestor de albaranes).
+Practica final de Web II. Api rest del backend de bildyapp (gestor de
+albaranes para autonomos y empresas). Construye sobre la practica
+intermedia (modulo de usuarios) y añade clientes, proyectos, albaranes
+con firma y PDF, swagger y tests.
 
-## Como levantarlo
+## Como levantarlo en local
 
-Hace falta node 22+ y una cuenta de mongo atlas (con el plan free vale).
+Hace falta node 22+ y una cuenta de mongo atlas.
 
 ```
 npm install
 cp .env.example .env
 ```
 
-Rellenar el `.env` con la uri de atlas y dos secretos para jwt (los
-generas tu, con `openssl rand -hex 32` por ejemplo). Luego:
+Rellena el `.env` con la uri de mongo y dos secretos para jwt
+(`openssl rand -hex 32`). Las variables de cloudinary, smtp y slack
+son opcionales: si no estan, el storage hace fallback en memoria,
+nodemailer escupe el mail por consola y los errores 5xx solo se
+imprimen en log.
 
 ```
 npm run dev
 ```
 
-Y ya deberia quedar en http://localhost:3000.
+Y queda en http://localhost:3000.
+
+## Documentacion
+
+Una vez arrancado: http://localhost:3000/api-docs (swagger ui con
+todos los endpoints, esquemas y posibilidad de probar).
+
+## Tests
+
+```
+npm test                 # corre todos
+npm run test:coverage    # con cobertura
+```
+
+Usan `mongodb-memory-server` asi que no necesitan mongo real.
 
 ## Endpoints
 
-Todos cuelgan de `/api/user` salvo el health, que es `/api/health`.
+Todos los protegidos requieren `Authorization: Bearer <accessToken>`.
 
-- `POST /register` - email + password
-- `PUT /validation` - codigo de 6 digitos (se imprime por consola del server)
-- `POST /login` - devuelve access + refresh token
-- `PUT /register` - onboarding (nombre, apellidos, nif)
-- `PATCH /company` - crear empresa o unirse a una por cif
-- `PATCH /logo` - subir logo de la empresa (multipart, max 2mb)
-- `GET /` - datos del usuario con la empresa populada
-- `POST /refresh` - renovar tokens
-- `POST /logout` - invalida el refresh token
-- `DELETE /?soft=true` - baja (por defecto soft)
-- `POST /invite` - solo admin, invita a alguien a la empresa
-- `PATCH /password` - cambio de password (bonus)
+### `/api/user`
+Lo que ya hicimos en la intermedia (register, login, validation,
+onboarding, company, logo, refresh, logout, delete, invite, password).
 
-En `requests.http` tengo ejemplos de todos, se prueban con la extension
-REST Client de vscode.
+### `/api/client`
+- `POST /` - crear
+- `GET /` - listar (paginado: `?page=&limit=`, filtro `?name=`)
+- `GET /archived` - archivados
+- `GET /:id` - obtener uno
+- `PUT /:id` - actualizar
+- `DELETE /:id?soft=true|false` - archivar o borrar
+- `PATCH /:id/restore` - restaurar archivado
+
+### `/api/project`
+- `POST /` - crear (necesita `client` existente)
+- `GET /` - listar (`?client=`, `?name=`, `?active=`)
+- `GET /archived`
+- `GET /:id`, `PUT /:id`, `DELETE /:id?soft=`
+- `PATCH /:id/restore`
+
+### `/api/deliverynote`
+- `POST /` - crear (`format: hours | material`)
+- `GET /` - listar con muchos filtros (`?project=`, `?client=`,
+  `?format=`, `?signed=`, `?from=`, `?to=`)
+- `GET /:id` - con populate de user / client / project
+- `GET /pdf/:id` - descarga PDF (si esta firmado redirige al de la nube)
+- `PATCH /:id/sign` - firma con imagen multipart (campo `signature`)
+- `DELETE /:id` - solo si NO esta firmado
+
+### `/api/health`
+Health check para uptime monitors. Devuelve estado del
+proceso y de la conexion a mongo.
 
 ## Notas
 
-- El codigo de verificacion se imprime por consola. En un proyecto real
-  iria por email pero para la practica es mas comodo asi.
-- El endpoint de invite devuelve la password temporal en la respuesta
-  para poder probarlo sin montar un smtp. En prod habria que quitarlo.
-- Para autonomos (freelance) el cif de la company es el propio nif del
-  usuario, asi no duplicamos modelo.
-- `express-mongo-sanitize` no tira con express 5, asi que el saneado
-  anti NoSQL lo hago con un middleware mini propio en `sanitize.middleware.js`.
+- El codigo de verificacion del email se envia con nodemailer; en local
+  sin SMTP se imprime por consola para poder copiarlo a mano.
+- Las firmas se redimensionan con sharp (max 800px de ancho, webp 85%)
+  antes de subirse a cloudinary, asi pesan mucho menos.
+- El PDF de un albaran firmado se sube tambien a la nube, y la
+  descarga (`GET /pdf/:id`) redirige a esa url para no regenerarlo.
+- Un albaran firmado no se puede borrar (regla de negocio).
+- Los recursos (clients/projects/deliverynotes) son siempre por
+  compañia, no por usuario, asi cualquier guest de la misma empresa
+  los puede usar.
+- El rate limit (100/15min global y 10/15min en login/register) se
+  desactiva automaticamente cuando `NODE_ENV=test`.
