@@ -27,12 +27,7 @@ const dbConnect = async () => {
     console.error('[db] error:', err.message);
   });
 
-  // cierre limpio al parar el proceso (ctrl+c)
-  process.on('SIGINT', async () => {
-    await mongoose.connection.close();
-    console.log('[db] conexion cerrada por SIGINT');
-    process.exit(0);
-  });
+  // el cierre limpio del SIGINT/SIGTERM lo hace ahora index.js
 };
 
 export default dbConnect;

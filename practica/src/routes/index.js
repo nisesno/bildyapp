@@ -11,9 +11,4 @@ router.use('/client', clientRoutes);
 router.use('/project', projectRoutes);
 router.use('/deliverynote', deliveryNoteRoutes);
 
-// healthcheck por si acaso
-router.get('/health', (req, res) => {
-  res.json({ status: 'ok', ts: new Date().toISOString() });
-});
-
 export default router;

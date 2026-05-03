@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import mongoose from 'mongoose';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import routes from './routes/index.js';
@@ -41,6 +42,27 @@ app.use('/storage', express.static('storage'));
 
 // docs swagger - lo dejo sin auth para poder probarlo
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+
+// healthcheck para docker / uptime monitors
+app.get('/api/health', async (req, res) => {
+  const healthcheck = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+  };
+
+  try {
+    await mongoose.connection.db.admin().ping();
+    healthcheck.database = 'connected';
+  } catch {
+    healthcheck.status = 'error';
+    healthcheck.database = 'disconnected';
+    return res.status(503).json(healthcheck);
+  }
+
+  res.json(healthcheck);
+});
 
 app.use('/api', routes);
 
